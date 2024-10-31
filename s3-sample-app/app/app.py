@@ -1,45 +1,48 @@
-from flask import Flask, request, jsonify, render_template
+import os
 import boto3
-import os, uuid
+from flask import Flask, request, jsonify, render_template
 
 app = Flask(__name__)
 
-aws_region = os.getenv('AWS_REGION', 'us-west-2')  # Default to 'us-west-2' if not set
-table_name = os.getenv('DYNAMODB_TABLE')
-
-# DynamoDB setup
-dynamodb = boto3.resource('dynamodb', region_name=aws_region)  # Change to your region
-table = dynamodb.Table(table_name)
-
+# Set up the S3 client
+s3 = boto3.client('s3')
+BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/items', methods=['GET'])
+def get_items():
+    try:
+        # List all objects in the S3 bucket
+        response = s3.list_objects_v2(Bucket=BUCKET_NAME)
+        items = [{'name': obj['Key'], 'content': s3.get_object(Bucket=BUCKET_NAME, Key=obj['Key'])['Body'].read().decode('utf-8')} for obj in response.get('Contents', [])]
+        return jsonify(items)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/items', methods=['POST'])
 def add_item():
-    data = request.json
-    item_name = data.get('name')
-    if not item_name:
-        return jsonify({'error': 'Item name is required'}), 400
-    id = str(uuid.uuid4())
+    try:
+        data = request.get_json()
+        file_name = data['name']
+        file_content = data['content']
 
-    response = table.put_item(
-        Item={
-            'id': id,
-            'name': item_name
-        }
-    )
-    return jsonify({'message': 'Item added'}), 201
+        # Upload the file to S3
+        s3.put_object(Bucket=BUCKET_NAME, Key=file_name, Body=file_content.encode('utf-8'))
+        return jsonify({'message': 'Item added successfully'}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
-
-@app.route('/items', methods=['GET'])
-def get_items():
-    response = table.scan()
-    items = response.get('Items', [])
-    return jsonify(items), 200
-
+@app.route('/items/<filename>', methods=['DELETE'])
+def delete_item(filename):
+    try:
+        # Delete the file from S3
+        s3.delete_object(Bucket=BUCKET_NAME, Key=filename)
+        return jsonify({'message': 'Item deleted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True)
