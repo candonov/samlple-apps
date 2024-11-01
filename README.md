@@ -2,7 +2,7 @@
 
 Steps to build an image and push to docker hub:
 ```
-cd s3-sample-app
+cd s3-demo-app
 docker build -t candonov/s3-demo-app:latest
 docker login
 docker push candonov/s3-demo-app:latest
