@@ -44,5 +44,14 @@ def delete_item(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    try:
+        # Check if we can list objects in the S3 bucket
+        s3.list_objects_v2(Bucket=BUCKET_NAME, MaxKeys=1)
+        return jsonify({'status': 'healthy', 'message': 'Application is running and can connect to S3'}), 200
+    except Exception as e:
+        return jsonify({'status': 'unhealthy', 'message': f'Error connecting to S3: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
