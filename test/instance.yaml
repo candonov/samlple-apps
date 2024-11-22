@@ -2,6 +2,9 @@ apiVersion: kro.run/v1alpha1
 kind: WebApp
 metadata:
   name: test-app
+  labels:
+    a: b
+    app.kubernetes.io/instance: test-app
 spec:
   name: test-app
   port: 80 # nginx default port is 80
